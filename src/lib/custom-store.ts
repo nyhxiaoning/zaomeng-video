@@ -1,4 +1,4 @@
-import { createSeedanceTask, pollSeedanceTask } from "./seedance";
+import { createVideoTask, pollVideoTask } from "./video-provider";
 import { Settings } from "./settings";
 
 export type CustomJobStatus = "queued" | "running" | "succeeded" | "failed";
@@ -66,25 +66,25 @@ async function runCustomJob(id: string) {
   updateJob(id, (j) => ({ ...j, status: "running" }));
 
   try {
-    const created = await createSeedanceTask({
-      prompt: job.prompt,
-      model: job.settings.seedanceModel,
-      ratio: job.ratio,
-      resolution: job.resolution,
-      duration: job.duration,
-      generateAudio: job.generateAudio,
-      watermark: job.watermark,
-      returnLastFrame: false,
-      firstFrameUrl: job.firstFrameUrl,
-      referenceImageUrl: job.referenceImageUrl,
-      assetId: job.assetId,
-      apiKey: job.settings.arkApiKey,
-      baseUrl: job.settings.arkBaseUrl,
-    });
+    const created = await createVideoTask(
+      {
+        prompt: job.prompt,
+        ratio: job.ratio,
+        resolution: job.resolution,
+        duration: job.duration,
+        generateAudio: job.generateAudio,
+        watermark: job.watermark,
+        returnLastFrame: false,
+        firstFrameUrl: job.firstFrameUrl,
+        referenceImageUrl: job.referenceImageUrl,
+        assetId: job.assetId,
+      },
+      job.settings
+    );
 
     updateJob(id, (j) => ({ ...j, remoteTaskId: created.id }));
 
-    const result = await pollSeedanceTask(created.id, job.settings.arkApiKey, job.settings.arkBaseUrl);
+    const result = await pollVideoTask(created.id, job.settings);
 
     if (result.status === "succeeded" && result.videoUrl) {
       updateJob(id, (j) => ({ ...j, status: "succeeded", videoUrl: result.videoUrl }));

@@ -1,6 +1,6 @@
 import { PetJob, PetJobStatus, StoryboardScene } from "./types-pets";
 import { createSeedreamTask } from "./seedream";
-import { createSeedanceTask, pollSeedanceTask } from "./seedance";
+import { createVideoTask, pollVideoTask } from "./video-provider";
 
 // TODO: add arkApiKey?: string to PetJob in types-pets.ts
 const globalForPets = globalThis as typeof globalThis & {
@@ -132,22 +132,22 @@ async function runPetJobPipeline(jobId: string) {
     try {
       updateScene(jobId, scene.id, (s) => ({ ...s, videoStatus: "running" }));
 
-      const created = await createSeedanceTask({
-        prompt: `主角配音说：“${currentScene.subtitle || ""}”。\n动作与运镜：${currentScene.description}，${currentScene.camera}`,
-        model: jobAfterImages.settings.seedanceModel,
-        ratio: "9:16",
-        resolution: "720p",
-        duration: currentScene.duration || 5,
-        generateAudio: true,
-        watermark: false,
-        returnLastFrame: false,
-        firstFrameUrl: currentScene.imageUrl,
-        apiKey: jobAfterImages.settings.arkApiKey,
-        baseUrl: jobAfterImages.settings.arkBaseUrl,
-      });
+      const created = await createVideoTask(
+        {
+          prompt: `主角配音说：“${currentScene.subtitle || ""}”。\n动作与运镜：${currentScene.description}，${currentScene.camera}`,
+          ratio: "9:16",
+          resolution: "720p",
+          duration: currentScene.duration || 5,
+          generateAudio: true,
+          watermark: false,
+          returnLastFrame: false,
+          firstFrameUrl: currentScene.imageUrl,
+        },
+        jobAfterImages.settings
+      );
 
       updateScene(jobId, scene.id, (s) => ({ ...s, remoteVideoTaskId: created.id }));
-      const result = await pollSeedanceTask(created.id, jobAfterImages.settings.arkApiKey, jobAfterImages.settings.arkBaseUrl);
+      const result = await pollVideoTask(created.id, jobAfterImages.settings);
 
       if (result.status === "succeeded" && result.videoUrl) {
         updateScene(jobId, scene.id, (s) => ({ ...s, videoStatus: "succeeded", videoUrl: result.videoUrl }));

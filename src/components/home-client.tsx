@@ -344,16 +344,29 @@ export function HomeClient() {
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm text-slate-300">
                 模型
-                <select
-                  value={model}
-                  onChange={(event) => setModel(event.target.value)}
-                  className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none transition focus:border-violet-400"
-                >
-                  <option value="doubao-seedance-2-0-260128">seedance 2.0</option>
-                  <option value="doubao-seedance-2-0-fast-260128">
-                    seedance 2.0 fast
-                  </option>
-                </select>
+                {(() => {
+                  const s = getSettings();
+                  const isArk = (s.videoProvider || "ark") === "ark";
+                  if (isArk) {
+                    return (
+                      <select
+                        value={model}
+                        onChange={(event) => setModel(event.target.value)}
+                        className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none transition focus:border-violet-400"
+                      >
+                        <option value="doubao-seedance-2-0-260128">seedance 2.0</option>
+                        <option value="doubao-seedance-2-0-fast-260128">
+                          seedance 2.0 fast
+                        </option>
+                      </select>
+                    );
+                  }
+                  return (
+                    <div className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white/60">
+                      由提供商 {(s.videoProvider === "kling" ? "Kling" : "DashScope")} 在设置中配置
+                    </div>
+                  );
+                })()}
               </label>
               <label className="grid gap-2 text-sm text-slate-300">
                 批量应用秒数

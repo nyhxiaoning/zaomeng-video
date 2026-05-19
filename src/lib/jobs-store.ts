@@ -1,4 +1,5 @@
-import { buildPrompt, createSeedanceTask, pollSeedanceTask } from "@/lib/seedance";
+import { buildPrompt } from "@/lib/seedance";
+import { createVideoTask, pollVideoTask } from "@/lib/video-provider";
 import type { GenerationJob, SegmentDraft, SegmentTask } from "@/lib/types";
 
 const globalForJobs = globalThis as typeof globalThis & {
@@ -118,19 +119,19 @@ async function runJob(jobId: string) {
     }));
 
     try {
-      const created = await createSeedanceTask({
-        prompt,
-        model: job.settings.seedanceModel,
-        ratio: job.ratio,
-        resolution: job.resolution,
-        duration: clampDuration(segment.targetDurationSec),
-        generateAudio: job.generateAudio,
-        watermark: job.watermark,
-        returnLastFrame: false,
-        assetId: job.assetId,
-        apiKey: job.settings.arkApiKey,
-        baseUrl: job.settings.arkBaseUrl,
-      });
+      const created = await createVideoTask(
+        {
+          prompt,
+          ratio: job.ratio,
+          resolution: job.resolution,
+          duration: clampDuration(segment.targetDurationSec),
+          generateAudio: job.generateAudio,
+          watermark: job.watermark,
+          returnLastFrame: false,
+          assetId: job.assetId,
+        },
+        job.settings
+      );
 
       updateSegment(jobId, segment.id, (current) => ({
         ...current,
@@ -138,7 +139,7 @@ async function runJob(jobId: string) {
         status: "running",
       }));
 
-      const result = await pollSeedanceTask(created.id, job.settings.arkApiKey, job.settings.arkBaseUrl);
+      const result = await pollVideoTask(created.id, job.settings);
 
       if (result.status !== "succeeded" || !result.videoUrl) {
         failureCount += 1;

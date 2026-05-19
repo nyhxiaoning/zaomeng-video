@@ -1,0 +1,116 @@
+import type { Settings } from "./settings";
+import { createSeedanceTask, pollSeedanceTask } from "./seedance";
+import {
+  createKlingTask,
+  pollKlingTask,
+} from "./kling";
+import {
+  createDashscopeVideoTask,
+  pollDashscopeVideoTask,
+} from "./dashscope-video";
+
+export type VideoTaskInput = {
+  prompt: string;
+  ratio: string;
+  resolution: string;
+  duration: number;
+  generateAudio: boolean;
+  watermark: boolean;
+  returnLastFrame: boolean;
+  firstFrameUrl?: string;
+  referenceImageUrl?: string;
+  assetId?: string;
+};
+
+export type VideoTaskResult = {
+  id: string;
+  status: string;
+  videoUrl?: string;
+  lastFrameUrl?: string;
+  raw: unknown;
+  error?: string;
+};
+
+export async function createVideoTask(
+  input: VideoTaskInput,
+  settings: Settings
+): Promise<{ id: string }> {
+  const provider = settings.videoProvider || "ark";
+
+  switch (provider) {
+    case "kling": {
+      return createKlingTask(
+        {
+          prompt: input.prompt,
+          model: settings.klingModel,
+          ratio: input.ratio,
+          duration: input.duration,
+          firstFrameUrl: input.firstFrameUrl,
+        },
+        settings.klingApiKey
+      );
+    }
+
+    case "dashscope": {
+      return createDashscopeVideoTask(
+        {
+          prompt: input.prompt,
+          model: settings.dashscopeModel,
+          ratio: input.ratio,
+          duration: input.duration,
+          firstFrameUrl: input.firstFrameUrl,
+        },
+        settings.dashscopeApiKey
+      );
+    }
+
+    case "ark":
+    default: {
+      return createSeedanceTask({
+        prompt: input.prompt,
+        model: settings.seedanceModel,
+        ratio: input.ratio,
+        resolution: input.resolution,
+        duration: input.duration,
+        generateAudio: input.generateAudio,
+        watermark: input.watermark,
+        returnLastFrame: input.returnLastFrame,
+        assetId: input.assetId,
+        firstFrameUrl: input.firstFrameUrl,
+        referenceImageUrl: input.referenceImageUrl,
+        apiKey: settings.arkApiKey,
+        baseUrl: settings.arkBaseUrl,
+      });
+    }
+  }
+}
+
+export async function pollVideoTask(
+  taskId: string,
+  settings: Settings
+): Promise<VideoTaskResult> {
+  const provider = settings.videoProvider || "ark";
+
+  switch (provider) {
+    case "kling": {
+      const result = await pollKlingTask(taskId, settings.klingApiKey);
+      return {
+        ...result,
+        lastFrameUrl: undefined,
+      };
+    }
+
+    case "dashscope": {
+      const result = await pollDashscopeVideoTask(taskId, settings.dashscopeApiKey);
+      return {
+        ...result,
+        lastFrameUrl: undefined,
+      };
+    }
+
+    case "ark":
+    default: {
+      return pollSeedanceTask(taskId, settings.arkApiKey, settings.arkBaseUrl);
+    }
+  }
+}
