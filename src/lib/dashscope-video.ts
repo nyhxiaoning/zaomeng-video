@@ -14,11 +14,14 @@ export type DashscopeVideoResult = {
   error?: string;
 };
 
-const DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com";
-
 function getApiKey(inputApiKey: string) {
   if (!inputApiKey) throw new Error("Missing DASHSCOPE_API_KEY. 请在设置页面配置。");
   return inputApiKey;
+}
+
+function getBaseUrl(inputBaseUrl: string) {
+  if (!inputBaseUrl) throw new Error("Missing DASHSCOPE_BASE_URL. 请在设置页面配置。");
+  return inputBaseUrl.replace(/\/$/, "");
 }
 
 function buildHeaders(inputApiKey: string) {
@@ -42,9 +45,12 @@ function ratioToSize(ratio: string): string {
 
 export async function createDashscopeVideoTask(
   input: DashscopeVideoInput,
-  apiKey: string
+  apiKey: string,
+  baseUrl: string
 ): Promise<{ id: string }> {
   if (!input.model) throw new Error("Missing model for DashScope");
+
+  const BASE_URL = getBaseUrl(baseUrl);
 
   const body: Record<string, unknown> = {
     model: input.model,
@@ -64,7 +70,7 @@ export async function createDashscopeVideoTask(
   }
 
   const response = await fetch(
-    `${DEFAULT_BASE_URL}/api/v1/services/aigc/videogeneration/video_generation`,
+    `${BASE_URL}/api/v1/services/aigc/videogeneration/video_generation`,
     {
       method: "POST",
       headers: buildHeaders(apiKey),
@@ -92,10 +98,13 @@ export async function createDashscopeVideoTask(
 
 export async function getDashscopeVideoTask(
   taskId: string,
-  apiKey: string
+  apiKey: string,
+  baseUrl: string
 ): Promise<DashscopeVideoResult> {
+  const BASE_URL = getBaseUrl(baseUrl);
+
   const response = await fetch(
-    `${DEFAULT_BASE_URL}/api/v1/tasks/${taskId}`,
+    `${BASE_URL}/api/v1/tasks/${taskId}`,
     {
       method: "GET",
       headers: {
@@ -107,9 +116,8 @@ export async function getDashscopeVideoTask(
   );
 
   if (!response.ok) {
-    // Some DashScope versions use POST for task query
     const fallbackResponse = await fetch(
-      `${DEFAULT_BASE_URL}/api/v1/tasks/${taskId}`,
+      `${BASE_URL}/api/v1/tasks/${taskId}`,
       {
         method: "POST",
         headers: {
@@ -173,10 +181,11 @@ function parseTaskResponse(
 
 export async function pollDashscopeVideoTask(
   taskId: string,
-  apiKey: string
+  apiKey: string,
+  baseUrl: string
 ): Promise<DashscopeVideoResult> {
   while (true) {
-    const task = await getDashscopeVideoTask(taskId, apiKey);
+    const task = await getDashscopeVideoTask(taskId, apiKey, baseUrl);
     if (["succeeded", "failed", "expired"].includes(task.status)) {
       return task;
     }

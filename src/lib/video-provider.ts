@@ -42,12 +42,13 @@ export async function createVideoTask(
       return createKlingTask(
         {
           prompt: input.prompt,
-          model: settings.klingModel,
+          model: settings.kling.model,
           ratio: input.ratio,
           duration: input.duration,
           firstFrameUrl: input.firstFrameUrl,
         },
-        settings.klingApiKey
+        settings.kling.apiKey,
+        settings.kling.baseUrl
       );
     }
 
@@ -55,12 +56,13 @@ export async function createVideoTask(
       return createDashscopeVideoTask(
         {
           prompt: input.prompt,
-          model: settings.dashscopeModel,
+          model: settings.dashscope.model,
           ratio: input.ratio,
           duration: input.duration,
           firstFrameUrl: input.firstFrameUrl,
         },
-        settings.dashscopeApiKey
+        settings.dashscope.apiKey,
+        settings.dashscope.baseUrl
       );
     }
 
@@ -68,7 +70,7 @@ export async function createVideoTask(
     default: {
       return createSeedanceTask({
         prompt: input.prompt,
-        model: settings.seedanceModel,
+        model: settings.seedance.model,
         ratio: input.ratio,
         resolution: input.resolution,
         duration: input.duration,
@@ -78,8 +80,8 @@ export async function createVideoTask(
         assetId: input.assetId,
         firstFrameUrl: input.firstFrameUrl,
         referenceImageUrl: input.referenceImageUrl,
-        apiKey: settings.arkApiKey,
-        baseUrl: settings.arkBaseUrl,
+        apiKey: settings.seedance.apiKey,
+        baseUrl: settings.seedance.baseUrl,
       });
     }
   }
@@ -93,7 +95,7 @@ export async function pollVideoTask(
 
   switch (provider) {
     case "kling": {
-      const result = await pollKlingTask(taskId, settings.klingApiKey);
+      const result = await pollKlingTask(taskId, settings.kling.apiKey, settings.kling.baseUrl);
       return {
         ...result,
         lastFrameUrl: undefined,
@@ -101,7 +103,7 @@ export async function pollVideoTask(
     }
 
     case "dashscope": {
-      const result = await pollDashscopeVideoTask(taskId, settings.dashscopeApiKey);
+      const result = await pollDashscopeVideoTask(taskId, settings.dashscope.apiKey, settings.dashscope.baseUrl);
       return {
         ...result,
         lastFrameUrl: undefined,
@@ -110,7 +112,7 @@ export async function pollVideoTask(
 
     case "ark":
     default: {
-      return pollSeedanceTask(taskId, settings.arkApiKey, settings.arkBaseUrl);
+      return pollSeedanceTask(taskId, settings.seedance.apiKey, settings.seedance.baseUrl);
     }
   }
 }

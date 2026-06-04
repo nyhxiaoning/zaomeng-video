@@ -14,11 +14,14 @@ export type KlingTaskResult = {
   error?: string;
 };
 
-const DEFAULT_BASE_URL = "https://api-beijing.klingai.com";
-
 function getApiKey(inputApiKey: string) {
   if (!inputApiKey) throw new Error("Missing KLING_API_KEY. 请在设置页面配置。");
   return inputApiKey;
+}
+
+function getBaseUrl(inputBaseUrl: string) {
+  if (!inputBaseUrl) throw new Error("Missing KLING_BASE_URL. 请在设置页面配置。");
+  return inputBaseUrl.replace(/\/$/, "");
 }
 
 function buildHeaders(inputApiKey: string) {
@@ -30,9 +33,12 @@ function buildHeaders(inputApiKey: string) {
 
 export async function createKlingTask(
   input: KlingTaskInput,
-  apiKey: string
+  apiKey: string,
+  baseUrl: string
 ): Promise<{ id: string }> {
   if (!input.model) throw new Error("Missing model for Kling");
+
+  const BASE_URL = getBaseUrl(baseUrl);
 
   const body: Record<string, unknown> = {
     model: input.model,
@@ -45,7 +51,7 @@ export async function createKlingTask(
     body.image = input.firstFrameUrl;
   }
 
-  const response = await fetch(`${DEFAULT_BASE_URL}/v1/videos/generations`, {
+  const response = await fetch(`${BASE_URL}/v1/videos/generations`, {
     method: "POST",
     headers: buildHeaders(apiKey),
     body: JSON.stringify(body),
@@ -73,10 +79,13 @@ export async function createKlingTask(
 
 export async function getKlingTask(
   taskId: string,
-  apiKey: string
+  apiKey: string,
+  baseUrl: string
 ): Promise<KlingTaskResult> {
+  const BASE_URL = getBaseUrl(baseUrl);
+
   const response = await fetch(
-    `${DEFAULT_BASE_URL}/v1/videos/generations/${taskId}`,
+    `${BASE_URL}/v1/videos/generations/${taskId}`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),
@@ -128,10 +137,11 @@ export async function getKlingTask(
 
 export async function pollKlingTask(
   taskId: string,
-  apiKey: string
+  apiKey: string,
+  baseUrl: string
 ): Promise<KlingTaskResult> {
   while (true) {
-    const task = await getKlingTask(taskId, apiKey);
+    const task = await getKlingTask(taskId, apiKey, baseUrl);
     if (["succeeded", "failed", "expired"].includes(task.status)) {
       return task;
     }

@@ -21,3 +21,18 @@ body {
 a {
   @apply text-violet-300 underline-offset-4 transition hover:text-violet-200;
 }
+
+/* Toast 入场动画 */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
