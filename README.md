@@ -1,4 +1,12 @@
 # 造梦工厂 (Dream Factory)
+## 当前的调用地址列表
+- [deepseek](https://api.deepseek.com)
+- kimi
+- qwen
+- wanxiang
+- kling
+- doubao
+
 
 ## 大坑：不要用dev模式启动，很多组件渲染实时，但是方法都无法触发，可能是默认客户端组件导致
 必须npm run start启动项目
