@@ -10,16 +10,15 @@ export type Settings = {
   // 当前选中的视频提供商
   videoProvider: VideoProvider;
 
-  // 各模型独立配置
+  // 各视频模型独立配置
   seedance: ProviderConfig;
   kling: ProviderConfig;
   dashscope: ProviderConfig;
 
-  // ARK 通用配置（图片生成 + 分镜脚本仍使用 ARK）
-  arkApiKey: string;
-  arkBaseUrl: string;
-  seedreamModel: string;   // ARK 图片模型 endpoint
-  storyboardModel: string; // ARK 分镜 LLM endpoint
+  // 图片生成配置（支持 Seedream、阿里通义万相 等）
+  imageGen: ProviderConfig;
+  // 分镜脚本配置（支持 DeepSeek、Kimi、Qwen 等 LLM）
+  storyboard: ProviderConfig;
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -39,10 +38,16 @@ const DEFAULT_SETTINGS: Settings = {
     baseUrl: "https://dashscope.aliyuncs.com",
     model: "wan2.1-t2v-turbo",
   },
-  arkApiKey: "",
-  arkBaseUrl: "https://ark.cn-beijing.volces.com/api/v3",
-  seedreamModel: "",
-  storyboardModel: "",
+  imageGen: {
+    apiKey: "",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    model: "",
+  },
+  storyboard: {
+    apiKey: "",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    model: "",
+  },
 };
 
 /**
@@ -91,11 +96,23 @@ function migrateSettings(raw: Record<string, unknown>): Settings {
     merged.dashscope = { ...(merged.dashscope as object), ...(raw.dashscope as object) };
   }
 
-  // 其他字段直接覆盖
-  for (const key of ["videoProvider", "arkApiKey", "arkBaseUrl", "seedreamModel", "storyboardModel"]) {
-    if (key in raw) {
-      merged[key] = raw[key];
-    }
+  // 旧版 ARK 通用配置 → 新版 imageGen / storyboard
+  if (typeof raw.arkApiKey === "string" || typeof raw.arkBaseUrl === "string") {
+    const oldKey = typeof raw.arkApiKey === "string" ? raw.arkApiKey : "";
+    const oldUrl = typeof raw.arkBaseUrl === "string" ? raw.arkBaseUrl : "https://ark.cn-beijing.volces.com/api/v3";
+    const oldSeedream = typeof raw.seedreamModel === "string" ? raw.seedreamModel : "";
+    const oldStoryboard = typeof raw.storyboardModel === "string" ? raw.storyboardModel : "";
+
+    if (!merged.imageGen || typeof merged.imageGen !== "object") merged.imageGen = { ...DEFAULT_SETTINGS.imageGen };
+    if (!merged.storyboard || typeof merged.storyboard !== "object") merged.storyboard = { ...DEFAULT_SETTINGS.storyboard };
+
+    (merged.imageGen as Record<string, unknown>).apiKey = oldKey || DEFAULT_SETTINGS.imageGen.apiKey;
+    (merged.imageGen as Record<string, unknown>).baseUrl = oldUrl;
+    (merged.imageGen as Record<string, unknown>).model = oldSeedream || DEFAULT_SETTINGS.imageGen.model;
+
+    (merged.storyboard as Record<string, unknown>).apiKey = oldKey || DEFAULT_SETTINGS.storyboard.apiKey;
+    (merged.storyboard as Record<string, unknown>).baseUrl = oldUrl;
+    (merged.storyboard as Record<string, unknown>).model = oldStoryboard || DEFAULT_SETTINGS.storyboard.model;
   }
 
   return merged as unknown as Settings;
@@ -113,12 +130,18 @@ export function getSettings(): Settings {
       if (!parsed.seedance && (parsed.seedanceApiKey || parsed.seedanceModel)) {
         return migrateSettings(parsed);
       }
+      // 检测是否为旧版 ARK 扁平格式
+      if (parsed.arkApiKey || parsed.arkBaseUrl || parsed.seedreamModel || parsed.storyboardModel) {
+        return migrateSettings(parsed);
+      }
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
         seedance: { ...DEFAULT_SETTINGS.seedance, ...(parsed.seedance || {}) },
         kling: { ...DEFAULT_SETTINGS.kling, ...(parsed.kling || {}) },
         dashscope: { ...DEFAULT_SETTINGS.dashscope, ...(parsed.dashscope || {}) },
+        imageGen: { ...DEFAULT_SETTINGS.imageGen, ...(parsed.imageGen || {}) },
+        storyboard: { ...DEFAULT_SETTINGS.storyboard, ...(parsed.storyboard || {}) },
       };
     } catch (e) {
       // Ignore parse error

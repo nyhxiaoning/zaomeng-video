@@ -2,7 +2,6 @@ import { PetJob, PetJobStatus, StoryboardScene } from "./types-pets";
 import { createSeedreamTask } from "./seedream";
 import { createVideoTask, pollVideoTask } from "./video-provider";
 
-// TODO: add arkApiKey?: string to PetJob in types-pets.ts
 const globalForPets = globalThis as typeof globalThis & {
   __zaomengPets?: Map<string, PetJob>;
 };
@@ -92,11 +91,11 @@ async function runPetJobPipeline(jobId: string) {
       const prompt = `主体角色：${job.globalCharacter}。\n画面动作与场景：${scene.description}。\n保持角色绝对一致，高质量，电影级画质。`;
       const result = await createSeedreamTask({
         prompt,
-        model: job.settings.seedreamModel,
+        model: job.settings.imageGen.model,
         aspectRatio: "9:16",
         referenceImageUrl: job.referenceImageUrl,
-        apiKey: job.settings.arkApiKey,
-        baseUrl: job.settings.arkBaseUrl,
+        apiKey: job.settings.imageGen.apiKey,
+        baseUrl: job.settings.imageGen.baseUrl,
       });
 
       updateScene(jobId, scene.id, (s) => ({ ...s, remoteImageTaskId: result.id, imageStatus: "succeeded", imageUrl: result.imageUrl }));

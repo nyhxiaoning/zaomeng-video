@@ -271,30 +271,87 @@ function ProviderCard(p: {
 // SettingsInner
 // ============================================================
 
+const DEF_CFG = { apiKey: "", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", model: "" };
+
+async function fetchAvailableModels(apiKey: string, baseUrl: string, signal?: AbortSignal): Promise<string[]> {
+  const url = `${baseUrl.replace(/\/$/, "")}/models`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  });
+  if (!res.ok) throw new Error(`获取模型列表失败 (${res.status})`);
+  const data = await res.json();
+  return (data.data || []).map((m: { id: string }) => m.id);
+}
+
 function SettingsInner() {
   const { showToast } = useToast();
 
   const [vp, setVp] = useState<VideoProvider>(() => { try { return getSettings().videoProvider || "ark"; } catch { return "ark"; } });
-  const [ak, setAk] = useState(() => { try { return getSettings().arkApiKey; } catch { return ""; } });
-  const [au, setAu] = useState(() => { try { return getSettings().arkBaseUrl; } catch { return ""; } });
-  const [sm, setSm] = useState(() => { try { return getSettings().seedreamModel; } catch { return ""; } });
-  const [sb, setSb] = useState(() => { try { return getSettings().storyboardModel; } catch { return ""; } });
-  const [arkFb, setArkFb] = useState<Fb>(IDLE);
+  const [ig, setIg] = useState<ProviderConfig>(() => { try { return getSettings().imageGen; } catch { return { ...DEF_CFG }; } });
+  const [sbCfg, setSbCfg] = useState<ProviderConfig>(() => { try { return getSettings().storyboard; } catch { return { ...DEF_CFG }; } });
+  const [igFb, setIgFb] = useState<Fb>(IDLE);
+  const [sbFb, setSbFb] = useState<Fb>(IDLE);
+  const [igModels, setIgModels] = useState<string[] | null>(null);
+  const [sbModels, setSbModels] = useState<string[] | null>(null);
+  const [igModelsLoading, setIgModelsLoading] = useState(false);
+  const [sbModelsLoading, setSbModelsLoading] = useState(false);
 
-  function doSaveArk() {
-    console.log("doSaveArk======>", ak, au, sm, sb);
-    if (!ak.trim()) { setArkFb({ kind: "error", text: "ARK API Key 不能为空" }); showToast("error", "ARK API Key 不能为空"); return; }
-    if (!au.trim()) { setArkFb({ kind: "error", text: "ARK Base URL 不能为空" }); showToast("error", "ARK Base URL 不能为空"); return; }
-    setArkFb({ kind: "loading", text: "保存中..." });
+  async function doFetchModels(
+    cfg: ProviderConfig,
+    setModels: (v: string[] | null) => void,
+    setLoading: (v: boolean) => void,
+    showError: (msg: string) => void,
+  ) {
+    if (!cfg.apiKey.trim()) { showError("请先填写 API Key"); return; }
+    if (!cfg.baseUrl.trim()) { showError("请先填写 Base URL"); return; }
+    setLoading(true);
+    setModels(null);
+    try {
+      const list = await fetchAvailableModels(cfg.apiKey, cfg.baseUrl);
+      if (list.length === 0) throw new Error("该接口未返回任何可用模型");
+      setModels(list);
+      showToast("success", `获取到 ${list.length} 个可用模型`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "获取模型列表失败";
+      showError(msg);
+      showToast("error", msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function doSaveImageGen() {
+    if (!ig.apiKey.trim()) { setIgFb({ kind: "error", text: "API Key 不能为空" }); showToast("error", "API Key 不能为空"); return; }
+    if (!ig.baseUrl.trim()) { setIgFb({ kind: "error", text: "Base URL 不能为空" }); showToast("error", "Base URL 不能为空"); return; }
+    if (!ig.model.trim()) { setIgFb({ kind: "error", text: "请选择或输入模型" }); showToast("error", "请选择或输入模型"); return; }
+    setIgFb({ kind: "loading", text: "保存中..." });
     try {
       const s = getSettings();
-      s.arkApiKey = ak; s.arkBaseUrl = au; s.seedreamModel = sm; s.storyboardModel = sb;
+      s.imageGen = ig;
       saveSettings(s);
-      setArkFb({ kind: "success", text: "ARK 通用配置已保存" });
-      showToast("success", "ARK 通用配置已保存");
+      setIgFb({ kind: "success", text: "图片生成配置已保存" });
+      showToast("success", "图片生成配置已保存");
     } catch (e) {
-      setArkFb({ kind: "error", text: `保存失败: ${e instanceof Error ? e.message : ""}` });
-      showToast("error", "ARK 保存失败");
+      setIgFb({ kind: "error", text: `保存失败: ${e instanceof Error ? e.message : ""}` });
+      showToast("error", "图片生成配置保存失败");
+    }
+  }
+
+  function doSaveStoryboard() {
+    if (!sbCfg.apiKey.trim()) { setSbFb({ kind: "error", text: "API Key 不能为空" }); showToast("error", "API Key 不能为空"); return; }
+    if (!sbCfg.baseUrl.trim()) { setSbFb({ kind: "error", text: "Base URL 不能为空" }); showToast("error", "Base URL 不能为空"); return; }
+    if (!sbCfg.model.trim()) { setSbFb({ kind: "error", text: "请选择或输入模型" }); showToast("error", "请选择或输入模型"); return; }
+    setSbFb({ kind: "loading", text: "保存中..." });
+    try {
+      const s = getSettings();
+      s.storyboard = sbCfg;
+      saveSettings(s);
+      setSbFb({ kind: "success", text: "分镜脚本配置已保存" });
+      showToast("success", "分镜脚本配置已保存");
+    } catch (e) {
+      setSbFb({ kind: "error", text: `保存失败: ${e instanceof Error ? e.message : ""}` });
+      showToast("error", "分镜脚本配置保存失败");
     }
   }
 
@@ -310,45 +367,123 @@ function SettingsInner() {
         <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">系统设置</h1>
         <p className="text-sm text-slate-400 mb-8">每个视频模型独立配置，互不干扰。配置完成后点击「启用此模型」即可切换。</p>
 
-        {/* ARK 通用 */}
-        <div className="mb-8 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5">
+        {/* 图片生成配置 */}
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-semibold text-white">ARK 通用配置</h3>
-            <span className="text-xs text-sky-300/70">图片生成 + 分镜脚本</span>
+            <h3 className="text-base font-semibold text-white">图片生成配置</h3>
+            <span className="text-xs text-amber-300/70">Seedream · 阿里通义万相</span>
           </div>
-          <p className="text-xs text-slate-500 mb-5">以下配置用于 Seedream 图片生成和分镜脚本 LLM。</p>
+          <p className="text-xs text-slate-500 mb-5">配置用于生成底图的 AI 模型。填写 API Key 和 Base URL 后，点击「获取模型列表」自动拉取可用模型。</p>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-1.5 text-sm text-slate-300 md:col-span-2">
-              <span>ARK_API_KEY</span>
-              <input type="password" value={ak} onChange={(e) => setAk(e.target.value)}
+              <span>API Key</span>
+              <input type="password" value={ig.apiKey} onChange={(e) => setIg({ ...ig, apiKey: e.target.value })}
                 className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600" placeholder="sk-..." />
             </label>
             <label className="grid gap-1.5 text-sm text-slate-300 md:col-span-2">
-              <span>ARK_BASE_URL</span>
-              <input type="text" value={au} onChange={(e) => setAu(e.target.value)}
+              <span>Base URL</span>
+              <input type="text" value={ig.baseUrl} onChange={(e) => setIg({ ...ig, baseUrl: e.target.value })}
                 className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600" placeholder="https://ark.cn-beijing.volces.com/api/v3" />
             </label>
-            <label className="grid gap-1.5 text-sm text-slate-300">
-              <span>SEEDREAM_MODEL（图片生成）</span>
-              <input type="text" value={sm} onChange={(e) => setSm(e.target.value)}
-                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600" placeholder="ep-..." />
-            </label>
-            <label className="grid gap-1.5 text-sm text-slate-300">
-              <span>STORYBOARD_MODEL（分镜脚本）</span>
-              <input type="text" value={sb} onChange={(e) => setSb(e.target.value)}
-                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600" placeholder="ep-... 或 doubao-pro" />
+            <label className="grid gap-1.5 text-sm text-slate-300 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <span>模型</span>
+                <button type="button" onClick={() => doFetchModels(ig, setIgModels, setIgModelsLoading, (msg) => setIgFb({ kind: "error", text: msg }))}
+                  disabled={igModelsLoading}
+                  className="text-xs text-amber-400 hover:text-amber-300 transition disabled:opacity-50">
+                  {igModelsLoading ? "获取中..." : igModels ? "刷新模型列表" : "获取模型列表"}
+                </button>
+              </div>
+              <select value={ig.model}
+                onChange={(e) => setIg({ ...ig, model: e.target.value })}
+                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400">
+                {igModels === null ? (
+                  <option value="">— 点击「获取模型列表」拉取 —</option>
+                ) : igModels.length === 0 ? (
+                  <option value="">— 无可用模型，请手动输入 —</option>
+                ) : (
+                  <>
+                    <option value="">— 从下方选择或手动输入 —</option>
+                    {igModels.map((m) => (<option key={m} value={m}>{m}</option>))}
+                  </>
+                )}
+              </select>
+              <input type="text" value={ig.model} onChange={(e) => setIg({ ...ig, model: e.target.value })}
+                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600 mt-1"
+                placeholder="或手动输入模型名 / Endpoint ID" />
+              <p className="text-xs text-slate-500">先填写 API Key 和 Base URL，点击「获取模型列表」拉取可用模型。</p>
             </label>
           </div>
           <div className="mt-4 space-y-2">
-            <button onClick={doSaveArk} disabled={arkFb.kind === "loading"}
+            <button onClick={doSaveImageGen} disabled={igFb.kind === "loading"}
               className={`rounded-full px-5 py-2 text-sm font-medium flex items-center gap-2 active:scale-95 ${
-                arkFb.kind === "loading" ? "bg-slate-600 text-slate-400 cursor-not-allowed" : "bg-sky-500 text-white hover:bg-sky-400"
+                igFb.kind === "loading" ? "bg-slate-600 text-slate-400 cursor-not-allowed" : "bg-amber-500 text-white hover:bg-amber-400"
               }`}>
-              {arkFb.kind === "loading" && <Spinner/>}
-              {arkFb.kind === "loading" ? "保存中..." : "保存 ARK 通用配置"}
+              {igFb.kind === "loading" && <Spinner/>}
+              {igFb.kind === "loading" ? "保存中..." : "保存图片生成配置"}
             </button>
-            {arkFb.kind === "error" && <p className="text-sm text-red-400">{arkFb.text}</p>}
-            {arkFb.kind === "success" && <p className="text-sm text-emerald-400">{arkFb.text}</p>}
+            {igFb.kind === "error" && <p className="text-sm text-red-400">{igFb.text}</p>}
+            {igFb.kind === "success" && <p className="text-sm text-emerald-400">{igFb.text}</p>}
+          </div>
+        </div>
+
+        {/* 分镜脚本配置 */}
+        <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-white">分镜脚本配置</h3>
+            <span className="text-xs text-emerald-300/70">DeepSeek · Kimi · 通义千问</span>
+          </div>
+          <p className="text-xs text-slate-500 mb-5">配置用于生成分镜脚本的大语言模型。填写 API Key 和 Base URL 后，点击「获取模型列表」自动拉取可用模型。</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1.5 text-sm text-slate-300 md:col-span-2">
+              <span>API Key</span>
+              <input type="password" value={sbCfg.apiKey} onChange={(e) => setSbCfg({ ...sbCfg, apiKey: e.target.value })}
+                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600" placeholder="sk-..." />
+            </label>
+            <label className="grid gap-1.5 text-sm text-slate-300 md:col-span-2">
+              <span>Base URL</span>
+              <input type="text" value={sbCfg.baseUrl} onChange={(e) => setSbCfg({ ...sbCfg, baseUrl: e.target.value })}
+                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600" placeholder="https://ark.cn-beijing.volces.com/api/v3" />
+            </label>
+            <label className="grid gap-1.5 text-sm text-slate-300 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <span>模型</span>
+                <button type="button" onClick={() => doFetchModels(sbCfg, setSbModels, setSbModelsLoading, (msg) => setSbFb({ kind: "error", text: msg }))}
+                  disabled={sbModelsLoading}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition disabled:opacity-50">
+                  {sbModelsLoading ? "获取中..." : sbModels ? "刷新模型列表" : "获取模型列表"}
+                </button>
+              </div>
+              <select value={sbCfg.model}
+                onChange={(e) => setSbCfg({ ...sbCfg, model: e.target.value })}
+                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400">
+                {sbModels === null ? (
+                  <option value="">— 点击「获取模型列表」拉取 —</option>
+                ) : sbModels.length === 0 ? (
+                  <option value="">— 无可用模型，请手动输入 —</option>
+                ) : (
+                  <>
+                    <option value="">— 从下方选择或手动输入 —</option>
+                    {sbModels.map((m) => (<option key={m} value={m}>{m}</option>))}
+                  </>
+                )}
+              </select>
+              <input type="text" value={sbCfg.model} onChange={(e) => setSbCfg({ ...sbCfg, model: e.target.value })}
+                className="rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-white outline-none focus:border-violet-400 placeholder:text-slate-600 mt-1"
+                placeholder="或手动输入模型名" />
+              <p className="text-xs text-slate-500">先填写 API Key 和 Base URL，点击「获取模型列表」拉取可用模型。</p>
+            </label>
+          </div>
+          <div className="mt-4 space-y-2">
+            <button onClick={doSaveStoryboard} disabled={sbFb.kind === "loading"}
+              className={`rounded-full px-5 py-2 text-sm font-medium flex items-center gap-2 active:scale-95 ${
+                sbFb.kind === "loading" ? "bg-slate-600 text-slate-400 cursor-not-allowed" : "bg-emerald-500 text-white hover:bg-emerald-400"
+              }`}>
+              {sbFb.kind === "loading" && <Spinner/>}
+              {sbFb.kind === "loading" ? "保存中..." : "保存分镜脚本配置"}
+            </button>
+            {sbFb.kind === "error" && <p className="text-sm text-red-400">{sbFb.text}</p>}
+            {sbFb.kind === "success" && <p className="text-sm text-emerald-400">{sbFb.text}</p>}
           </div>
         </div>
 
@@ -356,9 +491,10 @@ function SettingsInner() {
         <div className="mb-8 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5 text-sm text-sky-200">
           <h3 className="mb-2 font-semibold text-sky-300">如何获取这些参数？</h3>
           <ul className="list-inside list-disc space-y-1 ml-1">
-            <li><strong>火山引擎 ARK</strong>：火山方舟 API Key 管理 + 在线推理接入点。</li>
-            <li><strong>可灵 Kling AI</strong>：Kling AI 开放平台。</li>
-            <li><strong>阿里云 DashScope</strong>：阿里云 DashScope API-KEY 管理。</li>
+            <li>先填写 API Key 和 Base URL，然后点击「获取模型列表」自动拉取当前服务商支持的模型。</li>
+            <li><strong>图片生成</strong>：火山引擎 ARK（Seedream）用 <code className="rounded bg-white/10 px-1">https://ark.cn-beijing.volces.com/api/v3</code>；阿里云 DashScope（通义万相）用 <code className="rounded bg-white/10 px-1">https://dashscope.aliyuncs.com</code>。</li>
+            <li><strong>分镜脚本</strong>：火山引擎 ARK 用 ARK Base URL；DeepSeek 官方用 <code className="rounded bg-white/10 px-1">https://api.deepseek.com</code>。</li>
+            <li><strong>视频模型</strong>：可灵 Kling AI、阿里云 DashScope（通义万相 Wan），各提供商独立配置。</li>
           </ul>
         </div>
 

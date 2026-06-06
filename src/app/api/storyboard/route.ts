@@ -18,13 +18,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing theme" }, { status: 400 });
     }
 
-    if (!settings || !settings.arkApiKey || !settings.arkBaseUrl || !settings.storyboardModel) {
-      return NextResponse.json({ error: "缺少火山引擎配置，请先在系统设置中配置 ARK_API_KEY, ARK_BASE_URL 和 STORYBOARD_MODEL。" }, { status: 400 });
+    if (!settings || !settings.storyboard?.apiKey || !settings.storyboard?.baseUrl || !settings.storyboard?.model) {
+      return NextResponse.json({ error: "缺少分镜脚本配置，请先在系统设置中配置 API Key、Base URL 和模型。" }, { status: 400 });
     }
 
-    const apiKey = settings.arkApiKey;
-    const baseUrl = settings.arkBaseUrl.replace(/\/$/, "");
-    const model = settings.storyboardModel;
+    const apiKey = settings.storyboard.apiKey;
+    const baseUrl = settings.storyboard.baseUrl.replace(/\/$/, "");
+    const model = settings.storyboard.model;
 
     const prompt = `你是一个专业的萌宠短视频导演。请根据以下内容主题，为我生成一个 3-5 个分镜的视频脚本。
 注意：每段时长控制在 4-8 秒之间。
